@@ -95,24 +95,24 @@ class MSTAScorer:
 		Z = (score - mean) / max(1.0, sigma)
 		return Z
 
-	# def align_pair(self, row1, row2):
-	# 	pos1 = 0
-	# 	pos2 = 0
-	# 	pos1s = []
-	# 	pos2s = []
-	# 	for col in range(self.nr_cols):
-	# 		c1 = row1[col]
-	# 		c2 = row2[col]
-	# 		gap1 = (c1 == '-' or c1 == '.')
-	# 		gap2 = (c2 == '-' or c2 == '.')
-	# 		if not gap1 and not gap2:
-	# 			pos1s.append(pos1)
-	# 			pos2s.append(pos2)
-	# 		if not gap1:
-	# 			pos1 += 1
-	# 		if not gap2:
-	# 			pos2 += 1
-	# 	return pos1s, pos2s
+	def align_pair(self, row1, row2):
+		pos1 = 0
+		pos2 = 0
+		pos1s = []
+		pos2s = []
+		for col in range(self.nr_cols):
+			c1 = row1[col]
+			c2 = row2[col]
+			gap1 = (c1 == '-' or c1 == '.')
+			gap2 = (c2 == '-' or c2 == '.')
+			if not gap1 and not gap2:
+				pos1s.append(pos1)
+				pos2s.append(pos2)
+			if not gap1:
+				pos1 += 1
+			if not gap2:
+				pos2 += 1
+		return pos1s, pos2s
 
 	def get_dist(self, x1, y1, z1, x2, y2, z2):
 		dx = x1 - x2
@@ -352,7 +352,10 @@ class MSTAScorer:
 					diff = abs(d1 - d2)
 					if diff <= t:
 						nr_preserved += 1
-			score = nr_preserved/nr_considered
+			if nr_considered == 0:
+				score = 0
+			else:
+				score = nr_preserved/nr_considered
 			total += score
 			self.col_scores.append(score)
 			self.nr_preserveds.append(nr_preserved)
@@ -448,9 +451,9 @@ class MSTAScorer:
 				pdb_fnj = self.pdb_fns[pdb_idxj]
 				pdb_seqj, xjs, yjs, zjs = self.fn2data[pdb_fnj]
 				Lj = len(pdb_seqj)
-				# posis, posjs = self.align_pair(rowi, rowj)
-				posis = self.col2pos_vec[msa_idxi]
-				posjs = self.col2pos_vec[msa_idxj]
+				posis, posjs = self.align_pair(rowi, rowj)
+				# posis = self.col2pos_vec[msa_idxi]
+				# posjs = self.col2pos_vec[msa_idxj]
 				score = self.dali_score(posis, xis, yis, zis, posjs, xjs, yjs, zjs)
 				Z = self.dali_Z_from_score_and_lengths(score, Li, Lj)
 				total_score += score
