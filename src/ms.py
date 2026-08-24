@@ -36,7 +36,7 @@ class MSTAScorer:
 			try:
 				x = float(line[30:38])
 				y = float(line[38:46])
-				z = float(line[47:54])
+				z = float(line[46:54])
 			except:
 				continue
 		
