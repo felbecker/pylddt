@@ -8,6 +8,40 @@ Structures which do not match the MSA are ignored. Sequences in the MSA which do
 
 Scripts are in `src/*.py`. Type `scriptname.py -h` to get usage information.
 
+### Parallel scorers
+
+`daliz.py`, `lddt_foldmason.py` and `lddt_mu.py` each have a numpy-vectorized
+twin with the same CLI and the same output, plus a `--threads` option:
+`daliz_par.py`, `lddt_foldmason_par.py`, `lddt_mu_par.py`. They share
+`src/ms_np.py` and reuse `src/ms.py` unchanged for parsing and for matching
+sequences to structures. On a 115-structure AFDB cluster with 16 threads:
+
+| scorer | serial | 16 threads |
+|---|---|---|
+| `daliz` | 302 s | 3.0 s |
+| `lddt_mu` | 155 s | 2.4 s |
+| `lddt_foldmason` | 64 s | 2.4 s |
+
+## Tests
+
+`pytest` (needs `numpy`). The suite checks that each parallel scorer reproduces
+its serial original byte for byte, across option sets, families and thread
+counts:
+
+<pre>
+pytest tests -q                 # everything, about 90 s
+pytest tests -q -m "not slow"   # skip the larger AFDB family, about 20 s
+</pre>
+
+Test structures live in `tests/data/&lt;collection&gt;/&lt;family&gt;/`, one `msa.afa`
+plus one PDB per sequence. The `homstrad` families come from HOMSTRAD; the
+`afdb` family is a 16-structure subsample of an AlphaFold DB cluster, stripped
+to CA `ATOM` records (the scorers only ever read CA).
+
+Note that the fixtures under `data/` and the expected output under `output/`
+are not runnable: the PDB files their `.files` lists point at were never
+committed.
+
 ## To reproduce FoldMason LDDT anomalies
 
 <pre>

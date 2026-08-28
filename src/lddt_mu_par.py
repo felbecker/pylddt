@@ -18,10 +18,9 @@
 
 import sys
 import argparse
-import contextlib
-import multiprocessing
 import numpy as np
 from ms import *
+import ms_np
 
 Usage = \
 (
@@ -46,30 +45,12 @@ THRESHOLDS = None
 SYMMETRY = None
 
 def lddt_pair(p1, p2, C1, C2):
-	"""LDDT of one sequence pair. Equivalent to ms.MSTAScorer.lddt_score.
-
-	p1, p2 are column-to-position maps (-1 for gap) and C1, C2 the CA
-	coordinates of the two structures. float64 throughout: float32 rounding can
-	flip the `diff <= t` comparisons right at a threshold.
-	"""
-	common = (p1 >= 0) & (p2 >= 0)
-	q1 = p1[common]
-	q2 = p2[common]
-	n = q1.size
+	"""LDDT of one sequence pair. Equivalent to ms.MSTAScorer.lddt_score."""
+	cols, d1, d2 = ms_np.common_dists(p1, p2, C1, C2)
+	n = cols.size
 	if n == 0:
 		return 0.0
-	A = C1[q1]
-	B = C2[q2]
-	d1 = np.sqrt(((A[:, None, :] - A[None, :, :])**2).sum(-1))
-	d2 = np.sqrt(((B[:, None, :] - B[None, :, :])**2).sum(-1))
-	if SYMMETRY == "first":
-		sel = d1 <= R0
-	elif SYMMETRY == "both":
-		# reference skips only when *both* exceed R0
-		sel = (d1 <= R0) | (d2 <= R0)
-	else: # "either"
-		sel = (d1 <= R0) & (d2 <= R0)
-	np.fill_diagonal(sel, False) # the coli == colj skip
+	sel = ms_np.symmetry_mask(d1, d2, R0, SYMMETRY)
 	diff = np.abs(d1 - d2)
 	# one "considered" is counted per threshold, not per column pair
 	nr_considered = sel.sum(1)*len(THRESHOLDS)
@@ -90,21 +71,6 @@ def score_row(i):
 		scores[k] = lddt_pair(p1, COL2POS[j], C1, COORDS[j])
 	return i, scores
 
-def calc_all_pairs(nr_seqs, threads):
-	"""Row-wise scores for all pairs, in ascending i order."""
-	rows = [ None ]*nr_seqs
-	if threads <= 1:
-		for i in range(nr_seqs - 1):
-			_, rows[i] = score_row(i)
-	else:
-		# fork so the workers share COORDS/COL2POS without pickling them
-		ctx = multiprocessing.get_context("fork")
-		with ctx.Pool(threads) as pool:
-			# row 0 is the longest task, so hand out one row at a time
-			for i, scores in pool.imap_unordered(score_row, range(nr_seqs - 1), chunksize=1):
-				rows[i] = scores
-	return rows
-
 def main():
 	global COORDS, COL2POS, R0, THRESHOLDS, SYMMETRY
 
@@ -116,10 +82,7 @@ def main():
 
 	scorer.read_pdbs(paths_fn)
 	scorer.read_msa(msa_fn)
-	# ms.match_seqs_to_pdbs has a leftover debug print for the label "1bb9_";
-	# stdout is parsed by callers, so keep anything it prints on stderr.
-	with contextlib.redirect_stdout(sys.stderr):
-		scorer.match_seqs_to_pdbs()
+	scorer.match_seqs_to_pdbs()
 
 	nr_matched = len(scorer.msa_idxs)
 	if nr_matched != scorer.nr_seqs:
@@ -127,24 +90,13 @@ def main():
 						 (scorer.nr_matched, scorer.nr_seqs))
 		sys.exit(1)
 
-	scorer.set_col2pos_vec()
-
 	R0 = scorer.R0
 	SYMMETRY = scorer.symmetry
 	THRESHOLDS = scorer.thresholds
 
-	COORDS = []
-	for i in range(nr_matched):
-		pdb_fn = scorer.pdb_fns[scorer.pdb_idxs[i]]
-		_, xs, ys, zs = scorer.fn2data[pdb_fn]
-		COORDS.append(np.array([ xs, ys, zs ], dtype=np.float64).T.copy())
-	COL2POS = np.array([ [ -1 if pos is None else pos for pos in scorer.col2pos_vec[i] ]
-						 for i in range(nr_matched) ], dtype=np.int32)
-	# every sequence matched, so col2pos_vec[i] is the row of msa_idxs[i]
+	COORDS, COL2POS = ms_np.build_arrays(scorer)
 
-	scorer.fn2data = None # free the per-structure Python float lists
-
-	rows = calc_all_pairs(nr_matched, Args.threads)
+	rows = ms_np.run_rows(score_row, nr_matched, Args.threads)
 
 	total_LDDT = 0.0
 	nr_pairs = 0

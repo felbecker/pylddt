@@ -189,10 +189,6 @@ class MSTAScorer:
 				if pdb_fn in self.matched_pdb_fns:
 					continue
 				pdb_seq, _, _, _s = self.fn2data[pdb_fn]
-				if label == "1bb9_":
-					print("")
-					print(pdb_seq)
-					print(test_seq)
 				if pdb_seq.upper() == test_seq:
 					matched_pdb_idx = pdb_idx
 					self.matched_pdb_fns.append(pdb_fn)
