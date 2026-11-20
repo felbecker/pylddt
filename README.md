@@ -22,6 +22,13 @@ sequences to structures. On a 115-structure AFDB cluster with 16 threads:
 | `lddt_mu` | 155 s | 2.4 s |
 | `lddt_foldmason` | 64 s | 2.4 s |
 
+`lddt_ref_par.py` has no serial twin. It is a reference-style pair-wise LDDT:
+the shorter sequence of each pair is the reference, neighbours come from the
+reference structure only (an unaligned neighbour fails every threshold), and
+the pair score is normalised by the reference length instead of the number of
+aligned columns. `lddt_mu` therefore behaves like precision and `lddt_ref` like
+recall; `tests/test_lddt_ref.py` pins down how the two differ.
+
 ## Tests
 
 `pytest` (needs `numpy`). The suite checks that each parallel scorer reproduces
