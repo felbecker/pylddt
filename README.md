@@ -29,6 +29,37 @@ the pair score is normalised by the reference length instead of the number of
 aligned columns. `lddt_mu` therefore behaves like precision and `lddt_ref` like
 recall; `tests/test_lddt_ref.py` pins down how the two differ.
 
+`lddt_mu_par.py --lengthnorm` also prints `LDDT_rce_L_mean` (and, with
+`--pairs`, a 4th column). This is LDDT-mu with the pair sum divided by the
+length of the shorter sequence instead of the number of aligned columns, i.e.
+coverage times LDDT-mu. Unlike `lddt_ref`, neighbours still come from the
+aligned columns only, so correctly unaligned residues lower the coverage but
+not the scores of their aligned neighbours. Without the flag the output is
+unchanged.
+
+`lddt_mu_par.py --coverage` also prints `COV_mean` (and, with `--pairs`, a
+last column): the alignment coverage, i.e. the mean over pairs i < j of the
+number of columns where both have residues divided by the length of the
+shorter sequence. It ignores structure, so `LDDT_rce_L = coverage * LDDT_rce`
+per pair.
+
+`lddt_mu_par.py --min_plddt T` (default 70; 0 disables) also prints both
+scores restricted to confident residues (`LDDT_rce_conf_mean`,
+`LDDT_rce_L_conf_mean`). A column is scored, and counts as a neighbour, only if
+the residues of both sequences have pLDDT >= T; the length-normalised version
+divides by the smaller number of confident residues. pLDDT is read from the
+B-factor column only for files whose header names AlphaFold; in other files,
+e.g. experimental structures, every residue counts as confident. With
+`--min_plddt 0` and without `--lengthnorm` and `--coverage`, the output is
+identical to
+`lddt_mu.py`; `tests/test_lddt_plddt.py` pins down the masked scores.
+
+snakeMSA's `score_msa` rule reports `lddt_mu_par.py --symmetry both
+--lengthnorm --coverage --min_plddt 70` (as `lddt_muscle`, `lddt_muscle_L`,
+`lddt_muscle_conf`, `lddt_muscle_L_conf`, `coverage`) plus the default LDDT of
+the FoldMason binary (`lddt_fm`); the other scorers here are kept for manual
+use.
+
 ## Tests
 
 `pytest` (needs `numpy`). The suite checks that each parallel scorer reproduces

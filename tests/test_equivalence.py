@@ -61,6 +61,12 @@ SCRIPTS = {
 	"lddt_mu":        ( "lddt_mu.py",        "lddt_mu_par.py" ),
 }
 
+# Options the parallel side needs to print exactly what the serial one does.
+# lddt_mu_par.py adds pLDDT-masked scores unless --min_plddt is 0.
+PARALLEL_ONLY = {
+	"lddt_mu": [ "--min_plddt", "0" ],
+}
+
 # daliz leaves R0 unset by default, so --symmetry does nothing unless a radius
 # is given too; pair them, or the mask would never be exercised.
 OPTIONS = {
@@ -128,7 +134,8 @@ def test_parallel_matches_serial(scorer, opts, family, threads, pdbfiles, serial
 	serial, parallel = SCRIPTS[scorer]
 	files = pdbfiles(family)
 	expected = serial_output(serial, family.msa, files, opts)
-	args = [ "--msa", family.msa, "--pdbfiles", files, "--threads", threads ] + opts
+	args = [ "--msa", family.msa, "--pdbfiles", files, "--threads", threads ] + opts \
+		+ PARALLEL_ONLY.get(scorer, [])
 	actual = run_script(parallel, args).stdout
 	assert_same_output(expected, actual,
 					   "%s %s %s --threads %d" % (parallel, family, " ".join(opts), threads))
@@ -142,7 +149,8 @@ def test_thread_count_invariance(scorer, threads, pdbfiles, serial_output):
 	serial, parallel = SCRIPTS[scorer]
 	files = pdbfiles(SMALL)
 	expected = serial_output(serial, SMALL.msa, files, [])
-	args = [ "--msa", SMALL.msa, "--pdbfiles", files, "--threads", threads ]
+	args = [ "--msa", SMALL.msa, "--pdbfiles", files, "--threads", threads ] \
+		+ PARALLEL_ONLY.get(scorer, [])
 	actual = run_script(parallel, args).stdout
 	assert_same_output(expected, actual, "%s --threads %d" % (parallel, threads))
 
